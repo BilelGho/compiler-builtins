@@ -84,19 +84,22 @@ fn overflowing_mul() {
 macro_rules! float_mul {
     ($($f:ty, $fn:ident);*;) => {
         $(
-            fuzz_float_2(N, |x: $f, y: $f| {
-                let mul0 = x * y;
-                let mul1: $f = $fn(x, y);
-                // multiplication of subnormals is not currently handled
-                if !(Float::is_subnormal(mul0) || Float::is_subnormal(mul1)) {
+            #[test]
+            fn $fn() {
+                use compiler_builtins::float::{mul::$fn, Float};
+                use core::ops::Mul;
+
+                fuzz_float_2(N, |x: $f, y: $f| {
+                    let mul0 = apfloat_fallback!($f, $apfloat_ty, $sys_available, Mul::mul, x, y);
+                    let mul1: $f = $fn(x, y);
                     if !Float::eq_repr(mul0, mul1) {
                         panic!(
-                            "{}({}, {}): std: {}, builtins: {}",
+                            "{}({:?}, {:?}): std: {:?}, builtins: {:?}",
                             stringify!($fn), x, y, mul0, mul1
                         );
                     }
-                }
-            });
+                });
+            }
         )*
     };
 }
